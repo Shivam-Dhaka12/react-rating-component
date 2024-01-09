@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { func } from 'prop-types';
+import { useEffect, useState } from 'react';
+import Loader from './Components/Loader';
 
 const tempMovieData = [
 	{
@@ -49,9 +51,7 @@ function Navbar({ children }) {
 	return <nav className="nav-bar">{children}</nav>;
 }
 
-function Search() {
-	const [query, setQuery] = useState('');
-
+function Search({ query, setQuery }) {
 	return (
 		<input
 			className="search"
@@ -75,7 +75,7 @@ function Logo() {
 function NumResults({ movies }) {
 	return (
 		<p className="num-results">
-			Found <strong>{movies.length}</strong> results
+			Found <strong>{movies ? movies.length : 0}</strong> results
 		</p>
 	);
 }
@@ -99,26 +99,6 @@ function Box({ children }) {
 		</div>
 	);
 }
-
-// function WatchedBox() {
-// 	const [isOpen2, setIsOpen2] = useState(true);
-
-// 	return (
-// 		<div className="box">
-// 			<button
-// 				className="btn-toggle"
-// 				onClick={() => setIsOpen2((open) => !open)}
-// 			>
-// 				{isOpen2 ? '–' : '+'}
-// 			</button>
-// 			{isOpen2 && (
-// 				<>
-//
-// 				</>
-// 			)}
-// 		</div>
-// 	);
-// }
 
 function MovieList({ movies }) {
 	return (
@@ -208,20 +188,81 @@ function WatchedMovie({ movie }) {
 	);
 }
 
+function ErrorMessage({ message }) {
+	return (
+		<p className="error">
+			<span>🛑</span>
+			{message}
+		</p>
+	);
+}
+
 export default function App() {
-	const [movies, setMovies] = useState(tempMovieData);
-	const [watched, setWatched] = useState(tempWatchedData);
+	const [movies, setMovies] = useState([]);
+	const [watched, setWatched] = useState([]);
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState('');
+	const [query, setQuery] = useState('attack on titan');
+
+	useEffect(
+		function () {
+			async function fetchMovies() {
+				try {
+					setIsLoading(true);
+					setError('');
+
+					const res = await fetch(
+						`http://www.omdbapi.com/?apikey=33febabc&s=${query}`
+					);
+
+					if (!res.ok)
+						throw new Error(
+							'Something went wrong with fetching movies'
+						);
+
+					const data = await res.json();
+					console.log(data);
+
+					if (data.Response === 'False')
+						throw new Error('Movie not found');
+
+					setMovies(data.Search);
+				} catch (error) {
+					setError(() => error.message);
+				} finally {
+					setIsLoading(false);
+				}
+			}
+
+			if (query.length < 3) {
+				setMovies([]);
+				setError('');
+				return;
+			}
+
+			fetchMovies();
+		},
+		[query]
+	);
+
+	// setWatched([]);
 
 	return (
 		<>
 			<Navbar>
 				<Logo />
-				<Search />
+				<Search query={query} setQuery={setQuery} />
 				<NumResults movies={movies} />
 			</Navbar>
 			<Main>
 				<Box>
-					<MovieList movies={movies} />
+					{error ? (
+						<ErrorMessage message={error} />
+					) : isLoading ? (
+						<Loader />
+					) : (
+						<MovieList movies={movies} />
+					)}
 				</Box>
 				<Box>
 					<WatchedSummary watched={watched} />
